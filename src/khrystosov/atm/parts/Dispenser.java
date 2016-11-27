@@ -10,7 +10,7 @@ public class Dispenser{
 	}
 	
 	public boolean withdrawCash(int amount){
-		Bank.getInstance().logger.print("#Dispenser.withdrawCash(). PIN check fail. Amount "
+		Bank.getInstance().logger.print("#Dispenser.withdrawCash(). Withdrawn "
 				+ amount + ".");
 		return true;
 	}

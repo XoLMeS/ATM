@@ -27,46 +27,71 @@ public class Bank implements Serializable {
 	private ArrayList<Card> cards;
 	private ArrayList<Account> accounts;
 	private ArrayList<Office> offices;
+	private ArrayList<ATM> atms;
 	private transient Database db;
 	private String title;
 	private int last_card_id;
 	private int last_account_id;
+	private int last_atm_id;
+	private int last_office_id;
 
 	private Bank(String title) {
 		db = Database.getInstance();
 		File test = new File("Bank");
-		if(test.exists()){
-			instance = (Bank)db.readObject("Bank");
+		if (test.exists()) {
+			instance = (Bank) db.readObject("Bank");
 			last_card_id = instance.last_card_id;
 			last_account_id = instance.last_account_id;
+			last_atm_id = instance.last_atm_id;
+			last_office_id = instance.last_office_id;
 		}
 		cards = new ArrayList<Card>();
 		accounts = new ArrayList<Account>();
 		offices = new ArrayList<Office>();
 		logger = new ConsoleLogger();
+		atms = new ArrayList<ATM>();
 		this.title = title;
 
 		logger.print("#Bank '" + this.title + "' created");
-		
-		for(int i = 0; i < last_card_id; i++){
+
+		// LOAD ALL CARDS STORED IN PROJECT FOLDER
+		for (int i = 0; i < last_card_id; i++) {
 			File test_if_card_exists_in_folder = new File("Card" + i);
-			if(test_if_card_exists_in_folder.exists()){
-			cards.add((Card)db.readObject("Card" + i));
+			if (test_if_card_exists_in_folder.exists()) {
+				cards.add((Card) db.readObject("Card" + i));
 
 			}
 		}
-		
-		for(int i = 0; i < last_account_id; i++){
-			File test_if_account_exists_in_folder = new File("Account" + i);
-			if(test_if_account_exists_in_folder.exists()){
-			accounts.add((Account)db.readObject("Account" + i));
 
+		// LOAD ALL ACCOUNTS STORED IN PROJECT FOLDER
+		for (int i = 0; i < last_account_id; i++) {
+			File test_if_account_exists_in_folder = new File("Account" + i);
+			if (test_if_account_exists_in_folder.exists()) {
+				accounts.add((Account) db.readObject("Account" + i));
+
+			}
+		}
+
+		// LOAD ALL ATMs STORED IN PROJECT FOLDER
+		for (int i = 0; i < last_atm_id; i++) {
+			File test_if_atm_exists_in_folder = new File("ATM" + i);
+			if (test_if_atm_exists_in_folder.exists()) {
+				atms.add((ATM) db.readObject("ATM" + i));
+				
+			}
+		}
+
+		// LOAD ALL OFFICES STORED IN PROJECT FOLDER
+		for (int i = 0; i < last_office_id; i++) {
+			File test_if_office_exists_in_folder = new File("Office" + i);
+			if (test_if_office_exists_in_folder.exists()) {
+				offices.add((Office) db.readObject("Office" + i));
 			}
 		}
 	}
 
 	public Office getOffice(int id) {
-		if (id < 0 || id > offices.size()) {
+		if (id < 0 || id >= offices.size()) {
 			logger.print("#Bank.getOffice(). Bad index. No office with id "
 					+ id);
 			return null;
@@ -90,11 +115,13 @@ public class Bank implements Serializable {
 
 	public boolean checkPIN(int cardId, String PIN) {
 		if (cardExists(cardId)) {
-			logger.print("#Bank.checkPIN(). Bad index. No card with id "
-					+ cardId);
 			if (cards.get(cardId).getPIN().equals(PIN)) {
 				return true;
 			}
+		}
+		else {
+			logger.print("#Bank.checkPIN(). Bad index. No card with id "
+					+ cardId);
 		}
 		return false;
 	}
@@ -104,9 +131,15 @@ public class Bank implements Serializable {
 			if (cards.get(cardId).getFunds() >= amount) {
 				logger.print("#Bank.withdrawCash(). Card ¹" + cardId
 						+ ". Withdrawn " + amount);
-				if (cards.get(cardId).withdraw(amount) && db.writeObject("Card" + cardId, cards.get(cardId))) {
+				if (cards.get(cardId).withdraw(amount)
+						&& db.writeObject("Card" + cardId, cards.get(cardId))) {
 					return true;
 				}
+			}
+			else {
+				logger.print("#Bank.withdrawCash(). Card ¹" + cardId
+						+ ". Not enough money.");
+				return false;
 			}
 		}
 		return false;
@@ -116,7 +149,8 @@ public class Bank implements Serializable {
 		if (cardExists(cardId) && amount > 0) {
 			logger.print("#Bank.enrollMoney(). Card ¹" + cardId + ". Enrolled "
 					+ amount);
-			if (cards.get(cardId).enroll(amount) && db.writeObject("Card" + cardId, cards.get(cardId))) {
+			if (cards.get(cardId).enroll(amount)
+					&& db.writeObject("Card" + cardId, cards.get(cardId))) {
 				return true;
 			}
 		}
@@ -124,7 +158,9 @@ public class Bank implements Serializable {
 	}
 
 	public boolean openOffice(Address a) {
-		offices.add(new Office(offices.size(), a));
+		Office o = new Office(last_office_id++, a);
+		offices.add(o);
+		db.writeObject("Office" + o.getId(), o);
 		return true;
 	}
 
@@ -151,30 +187,51 @@ public class Bank implements Serializable {
 		return true;
 	}
 
-	public boolean registerNewCard(int acc_id, String secret) {
+	public boolean registerNewCard(String pib, String secret, String PIN) {
+		int acc_id = -1;
+		for (Account a : accounts) {
+			if (a.getPib().equals(pib)) {
+				acc_id = a.getId();
+			}
+		}
 		if (acc_id < 0 || acc_id > accounts.size()) {
-			logger.print("#Bank.registerNewCard(). Bad index. No acc ¹" + acc_id);
+			logger.print("#Bank.registerNewCard(). Bad index. No acc ¹"
+					+ acc_id);
 			return false;
 		}
 		if (secret.equals(accounts.get(acc_id).getSecret())) {
 			Card to_add = new Card(last_card_id++);
 			to_add.setAccountId(acc_id);
+			to_add.setPIN(PIN);
 			accounts.get(acc_id).addCard(to_add.getId());
 			cards.add(to_add);
-			if(db.writeObject("Card" + to_add.getId(), to_add)){
-				logger.print("#Bank.registerNewCard(). Card ¹" + to_add.getId() + " saved to database.");
-			};
+			if (db.writeObject("Card" + to_add.getId(), to_add)) {
+				logger.print("#Bank.registerNewCard(). Card ¹" + to_add.getId()
+						+ " saved to database.");
+			}
+			;
 			saveBank();
 			return true;
 		}
 		return false;
 	}
-	
-	private void saveBank(){
+
+	private void saveBank() {
 		db.writeObject("Bank", Bank.getInstance());
 	}
 
-	
-	
+	public boolean createATM() {
+		ATM atm = new ATM(last_atm_id++, null);
+		atms.add(atm);
+		db.writeObject("ATM" + atm.getId(), atm);
+		return true;
+	}
+
+	public ATM getATM(int id) {
+		if(id < 0 || id >= last_atm_id){
+			return null;
+		}
+		return atms.get(id);
+	}
 
 }

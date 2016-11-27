@@ -1,15 +1,17 @@
 package khrystosov.atm;
 
+import java.io.Serializable;
+
 import khrystosov.atm.parts.CardReader;
 import khrystosov.atm.parts.Dispenser;
 import khrystosov.tools.Address;
 
-public class ATM {
+public class ATM implements Serializable {
 
 	private int id;
-	private Address adress;
-	private Dispenser dispenser;
-	private CardReader cardReader;
+	private transient Address adress;
+	private transient Dispenser dispenser;
+	private transient CardReader cardReader;
 	private boolean cardIn = false;
 	private boolean available = true;
 
@@ -92,12 +94,17 @@ public class ATM {
 
 	public boolean readCard(String card) {
 		if (available && !cardIn) {
-			if (cardReader.readCard(card)) {
-				if (!Bank.getInstance().cardExists(cardReader.getCardId())) {
-					return false;
+			if (card.contains("Card")) {
+				if (cardReader.readCard(card)) {
+					if (!Bank.getInstance().cardExists(cardReader.getCardId())) {
+						return false;
+					}
+					cardIn = true;
+					return true;
 				}
-				cardIn = true;
-				return true;
+			}
+			else {
+				// TO DO
 			}
 		}
 		return false;
@@ -105,7 +112,7 @@ public class ATM {
 
 	private boolean checkPIN(String PIN) {
 		if (available && cardIn) {
-			if (PIN.length() != 4) {
+			if (PIN == null || PIN.length() != 4) {
 				Bank.getInstance().logger.print("#ATM " + id
 						+ ".checkPin(). Invalid PIN " + PIN + ". Card id "
 						+ cardReader.getCardId() + ".");
@@ -145,4 +152,7 @@ public class ATM {
 		return null;
 	}
 
+	public int getId() {
+		return id;
+	}
 }
